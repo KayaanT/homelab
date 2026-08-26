@@ -1,0 +1,31 @@
+# The app-of-apps root. Apply this ONCE by hand after ArgoCD is installed:
+#   kubectl apply -f bootstrap/root-app.yaml
+# After that, nothing reaches the cluster except by committing to Git.
+#
+# It recurses clusters/lab/ and picks up every app.yaml it finds, so adding a
+# component means adding a directory - never touching this file.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: __GITHUB_REPO__
+    targetRevision: main
+    path: clusters/lab
+    directory:
+      recurse: true
+      include: '**/app.yaml'
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
