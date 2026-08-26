@@ -11,6 +11,7 @@
 
 | Phase | What | Files |
 |---|---|---|
+| -1 | Wipe Windows, install Ubuntu, BIOS | `docs/FROM-WINDOWS.md`, `docs/WIFI.md` |
 | 0 | Host prep, disk wipe | `host/phase0-prep.sh`, `host/wipe-ceph-disks.sh` |
 | 1 | kubeadm + Cilium | `host/kubeadm.yaml`, `host/phase1-cluster-init.sh`, `clusters/lab/infra/cilium/` |
 | 2 | ArgoCD / GitOps | `bootstrap/` |

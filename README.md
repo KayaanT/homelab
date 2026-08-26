@@ -86,7 +86,8 @@ clusters/lab/  everything else                            (GitOps, wave-ordered)
   platform/      gateway, split-horizon DNS, tailscale, observability
   workloads/     ollama, open-webui, mlflow
 scripts/       configure.sh, openstack-mode.sh, k8s-mode.sh
-docs/          RUNBOOK.md (full build guide), decisions.md, versions.md
+docs/          RUNBOOK.md (full build guide), FROM-WINDOWS.md (BIOS + install),
+               WIFI.md (USB NIC), decisions.md, versions.md
 ```
 
 ## Build it
@@ -94,6 +95,9 @@ docs/          RUNBOOK.md (full build guide), decisions.md, versions.md
 Full step-by-step: **[`docs/RUNBOOK.md`](docs/RUNBOOK.md)**. Short version:
 
 ```bash
+# -1. wipe Windows, install Ubuntu Server -> docs/FROM-WINDOWS.md
+#     (BIOS: NVMe to AHCI, VT-x on. Plug in the USB ethernet adapter.)
+
 # 0. on the box, at the keyboard
 ./host/phase0-prep.sh
 ./host/wipe-ceph-disks.sh /dev/nvme0n1p4 /dev/nvme0n1p5
@@ -119,6 +123,7 @@ Then seal the two secrets (`infra/cert-manager/SEALING.md`,
 
 ## Status
 
+- [ ] Phase -1 — Windows → Ubuntu Server
 - [ ] Phase 0 — host prep
 - [ ] Phase 1 — kubeadm + Cilium
 - [ ] Phase 2 — ArgoCD / GitOps
