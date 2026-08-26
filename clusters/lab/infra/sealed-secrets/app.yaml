@@ -1,0 +1,27 @@
+# Secrets must live in Git for GitOps to be honest. Sealed Secrets encrypts
+# with a cluster-held key, so the sealed output is safe to commit publicly.
+# SOPS+age is the upgrade path once things are stable - see docs/decisions.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sealed-secrets
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://bitnami-labs.github.io/sealed-secrets
+    chart: sealed-secrets
+    targetRevision: 2.17.3   # VERIFY - see docs/versions.md
+    helm:
+      values: |
+        fullnameOverride: sealed-secrets-controller
+        resources:
+          requests: {cpu: 25m, memory: 64Mi}
+          limits:   {memory: 128Mi}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}

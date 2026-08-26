@@ -1,0 +1,20 @@
+# Separate from the chart Application: the ClusterIssuer CRD only exists after
+# the chart has synced, so this runs a wave later.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: __GITHUB_REPO__
+    targetRevision: main
+    path: clusters/lab/infra/cert-manager/config/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
