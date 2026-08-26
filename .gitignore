@@ -1,0 +1,6 @@
+*.key
+*.pem
+secrets/
+!**/sealed-*.yaml
+kubeconfig
+.env
