@@ -107,6 +107,32 @@ sudo apt update && sudo apt full-upgrade -y
 hostnamectl set-hostname homelab
 ```
 
+### Ubuntu Pro (optional, free for 5 machines)
+
+Worth attaching for **Livepatch** alone: rebooting this box takes the whole
+cluster down and cycles both Ceph OSDs, so applying kernel CVE fixes without a
+reboot has real value on a single node.
+
+```bash
+sudo pro attach <token>        # ubuntu.com/pro/dashboard
+sudo pro enable livepatch
+```
+
+**Do not enable `usg`.** The CIS/STIG profiles set `nosuid,nodev` mount options,
+tighten sysctls, and add AppArmor profiles that break kubelet and the container
+runtime in ways that are miserable to diagnose. Harden deliberately later, one
+control at a time, if at all.
+
+Skip `fips` (pins you to specific kernels) and `esm-apps` (24.04 main gets
+standard security updates to 2029, and nearly everything here runs in containers
+rather than apt).
+
+Livepatch buys time, it does not remove reboots — patches accumulate and
+`pro status` will tell you when a real one is due. Schedule it with a Ceph
+health check rather than being surprised by it.
+
+### Networking
+
 Set a **DHCP reservation** on your router for this MAC so the IP never moves,
 rather than a static netplan address — it survives router changes better and
 avoids conflicts.
