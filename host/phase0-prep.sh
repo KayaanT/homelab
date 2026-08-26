@@ -41,15 +41,31 @@ sudo apt-get update -qq
 sudo apt-get install -y -qq containerd chrony
 
 log "Configuring containerd for the systemd cgroup driver"
+# Regenerating the default config clears the disabled_plugins=["cri"] that some
+# distro packages ship with, and works across containerd config schema versions.
 sudo mkdir -p /etc/containerd
 containerd config default | sudo tee /etc/containerd/config.toml >/dev/null
 sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+
+# Verify rather than assume the sed matched. A silently-unset cgroup driver
+# produces kubelet failures that look like anything but a config problem:
+# pods stuck in ContainerCreating, and cgroup errors buried in journalctl.
+if ! grep -q 'SystemdCgroup = true' /etc/containerd/config.toml; then
+  echo "ERROR: SystemdCgroup was not set in /etc/containerd/config.toml." >&2
+  echo "The config schema may have changed. Find the runc options block:" >&2
+  grep -n 'runtimes.runc' /etc/containerd/config.toml >&2 || true
+  echo "and set SystemdCgroup = true under its [...options] table." >&2
+  exit 1
+fi
+
 sudo systemctl restart containerd
 sudo systemctl enable --now containerd chrony
 
 log "Verifying"
 echo "  swap:        $(free -h | awk '/Swap/ {print $2}')  (must be 0B)"
-echo "  containerd:  $(systemctl is-active containerd)"
-echo "  SystemdCgroup: $(grep -c 'SystemdCgroup = true' /etc/containerd/config.toml) occurrence(s)"
+echo "  containerd:  $(containerd --version | awk '{print $3}')  ($(systemctl is-active containerd))"
+echo "  config ver:  $(grep -m1 '^version' /etc/containerd/config.toml)"
+echo "  SystemdCgroup: set in $(grep -c 'SystemdCgroup = true' /etc/containerd/config.toml) place(s)"
+echo "  kernel:      $(uname -r)"
 echo
 echo "Next: review 'lsblk -f', then run host/wipe-ceph-disks.sh"
