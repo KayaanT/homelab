@@ -1,0 +1,21 @@
+# LoadBalancer IPs handed out on the LAN via ARP. The range MUST sit outside
+# the router's DHCP scope or you will get duplicate-address chaos.
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: lan-pool
+spec:
+  blocks:
+    - start: "__LB_RANGE_START__"
+      stop: "__LB_RANGE_END__"
+---
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: lan-l2
+spec:
+  # Wired NIC only. L2 announcement over WiFi does not work reliably.
+  interfaces:
+    - "__NIC_REGEX__"
+  externalIPs: true
+  loadBalancerIPs: true
