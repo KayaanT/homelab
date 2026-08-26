@@ -119,18 +119,20 @@ Barbican, Swift, and telemetry.
 ### Disk layout — partition manually during the Ubuntu install
 
 ```
-nvme0n1p1   1 GiB    EFI
-nvme0n1p2   2 GiB    /boot
-nvme0n1p3 200 GiB    LVM PV → vg0
-                       lv_root     110 GiB  (/, incl. /var/lib/containerd)
-                       lv_libvirt   80 GiB  (/var/lib/libvirt/images)
-                       ~10 GiB free for LVM snapshots
-~240 GiB unallocated  <- left free by the installer; host/partition-ceph-disks.sh
-                         carves p4 and p5 out of it after the fact, so you never
-                         have to fight subiquity's "leave unformatted" flow
-nvme0n1p4 ~120 GiB   RAW — Ceph OSD 0   (created post-install, no filesystem)
-nvme0n1p5 ~120 GiB   RAW — Ceph OSD 1   (created post-install, no filesystem)
+nvme0n1p1   1 GiB    EFI System Partition  (auto, via "Use as boot device")
+nvme0n1p2 190 GiB    /                        ext4
+nvme0n1p3  80 GiB    /var/lib/libvirt/images  ext4
+          ~240 GiB   unallocated  <- host/partition-ceph-disks.sh carves p4/p5
+                                     out of this after the install, so you never
+                                     fight subiquity's "leave unformatted" flow
+nvme0n1p4 ~120 GiB   RAW - Ceph OSD 0   (post-install, no filesystem)
+nvme0n1p5 ~120 GiB   RAW - Ceph OSD 1   (post-install, no filesystem)
 ```
+
+No LVM and no separate `/boot`: both cost installer friction and buy little
+when the data lives in Ceph. A separate `/boot` is only required for LVM or LUKS
+root. Keep `/var/lib/libvirt/images` on its own partition so an OpenStack qcow2
+cannot fill root.
 
 **No swap.** Kubelet requires it off.
 

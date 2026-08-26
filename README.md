@@ -98,7 +98,7 @@ Full step-by-step: **[`docs/RUNBOOK.md`](docs/RUNBOOK.md)**. Short version:
 
 ```bash
 # -1. wipe Windows, install Ubuntu Server -> docs/FROM-WINDOWS.md
-#     (BIOS: NVMe to AHCI, VT-x on. WiFi is fine to start - docs/WIFI.md)
+#     (BIOS: NVMe to AHCI/disable VMD, VT-x on. WiFi is fine - docs/WIFI.md)
 
 # 0. on the box, at the keyboard
 ./host/phase0-prep.sh

@@ -57,13 +57,26 @@ On the Windows box, before wiping:
   leave the rest of the disk as **free space**:
 
 ```
-nvme0n1p1   1 GiB    EFI System Partition
-nvme0n1p2   2 GiB    /boot            ext4
-nvme0n1p3 200 GiB    LVM PV -> vg0
-                       lv_root    110 GiB  /                        ext4
-                       lv_libvirt  80 GiB  /var/lib/libvirt/images  ext4
-            ~240 GiB  leave UNALLOCATED   <- Ceph OSDs, created post-install
+nvme0n1p1   1 GiB    EFI System Partition   <- auto-created by "Use as boot device"
+nvme0n1p2 190 GiB    /                        ext4
+nvme0n1p3  80 GiB    /var/lib/libvirt/images  ext4
+          ~240 GiB   leave UNALLOCATED      <- Ceph OSDs, created post-install
 ```
+
+  **No LVM, and no separate `/boot`.** Both add installer friction for almost no
+  benefit here. A separate `/boot` is only needed for LVM or LUKS root — GRUB
+  reads ext4 directly. And LVM's real wins, snapshots and live resizing, do not
+  matter much when your data lives in Ceph and there is 240GiB of free space to
+  grow into.
+
+  If you *do* want LVM and the "Create volume group" option appears to do
+  nothing: subiquity only offers **unused, unformatted** devices to it. Create
+  the partition with Format set to **"Leave unformatted"** and no mount point,
+  and it will then show up under AVAILABLE DEVICES for the VG. That single
+  non-obvious step is the entire reason this plan skips LVM.
+
+  Keep `/var/lib/libvirt/images` on its own partition regardless — it stops an
+  80GiB OpenStack qcow2 from filling root and taking the cluster down with it.
 
   After the install, `host/partition-ceph-disks.sh` carves the OSD partitions
   out of that free space and wipes them. It only ever writes to unallocated
