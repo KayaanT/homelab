@@ -96,10 +96,21 @@ Headscale is an open-source reimplementation of Tailscale's coordination
 server. Running it on this cluster means the control plane is self-hosted -
 no dependency on Tailscale's SaaS for the network to function.
 
-Deferred rather than done first, deliberately: it is the piece most likely to
-break remote access, and losing remote access to a headless box is the one
-failure that requires physically walking over to it. Get the cluster stable and
-reachable on hosted Tailscale, then migrate.
+**It should not run on the cluster.** A coordination server hosted inside the
+thing it provides access to is a circular dependency: when the cluster dies, so
+does the way back in. It belongs on separate hardware — see phase 4b, where a
+spare Raspberry Pi 3 hosts it alongside LAN DNS and off-box backups.
+
+Deferred rather than done first, deliberately: it is still the piece most likely
+to break remote access. Get the cluster stable on hosted Tailscale, run the Pi's
+Tier 1 services for a week, then migrate one device at a time — the homelab box
+last.
+
+The other catch, rarely mentioned up front: a coordination server must be
+reachable from wherever clients are, including cellular. That needs a public
+address, which is what the rest of this design avoids. Cloudflare Tunnel
+resolves it — `cloudflared` dials out, so the zero-inbound-ports property
+survives.
 
 ## Ollama over vLLM
 

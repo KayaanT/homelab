@@ -19,6 +19,7 @@ declare -A MAP=(
   [__TAILNET_NAME__]="$TAILNET_NAME"
   [__LAN_CIDR__]="$LAN_CIDR"
   [__NIC_REGEX__]="$NIC_REGEX"
+  [__PI_IP__]="${PI_IP:-192.168.1.51}"
 )
 
 for k in "${!MAP[@]}"; do

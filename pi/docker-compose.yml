@@ -1,0 +1,41 @@
+# Out-of-band services on the Pi. Deliberately NOT Kubernetes: the point of
+# these is that they keep working when the cluster does not.
+services:
+
+  coredns:
+    image: quay.io/oriedge/k8s_gateway:latest   # CoreDNS + the k8s_gateway plugin
+    container_name: coredns
+    restart: unless-stopped
+    network_mode: host          # needs :53 on the LAN address
+    volumes:
+      - ./coredns/Corefile:/Corefile:ro
+      - ./coredns/kubeconfig:/kubeconfig:ro    # read-only SA token, see below
+    command: ["-conf", "/Corefile"]
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports: ["3001:3001"]
+    volumes:
+      - ./data/uptime-kuma:/app/data
+
+  # --- Tier 2 only. Leave commented until Tier 1 has run for a week. ---
+  # headscale:
+  #   image: headscale/headscale:0.23
+  #   container_name: headscale
+  #   restart: unless-stopped
+  #   command: serve
+  #   ports: ["8080:8080"]
+  #   volumes:
+  #     - ./headscale/config.yaml:/etc/headscale/config.yaml:ro
+  #     - ./data/headscale:/var/lib/headscale
+  #
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: cloudflared
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run
+  #   environment:
+  #     # From the Cloudflare Zero Trust dashboard. Keep it out of Git.
+  #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}

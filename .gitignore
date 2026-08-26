@@ -4,3 +4,8 @@ secrets/
 !**/sealed-*.yaml
 kubeconfig
 .env
+
+# Pi out-of-band box
+pi/data/
+pi/.env
+pi/coredns/kubeconfig

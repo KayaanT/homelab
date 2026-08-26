@@ -1,0 +1,52 @@
+# Tier 2 only. The settings that actually matter are annotated; the rest of the
+# upstream default config is fine as shipped.
+# Full reference: https://github.com/juanfont/headscale
+
+# Must match the public hostname Cloudflare Tunnel routes to this container.
+# Clients embed this - changing it later re-registers every device.
+server_url: https://headscale.__DOMAIN__
+
+# Bind plain HTTP: TLS is terminated by Cloudflare at the edge, and cloudflared
+# reaches this over the container network. Do NOT also configure tls_* here.
+listen_addr: 0.0.0.0:8080
+metrics_listen_addr: 127.0.0.1:9090
+
+private_key_path: /var/lib/headscale/private.key
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+
+database:
+  type: sqlite
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+
+# The tailnet's address space. 100.64.0.0/10 is the CGNAT range Tailscale uses;
+# keeping it means client tooling behaves identically.
+prefixes:
+  v4: 100.64.0.0/10
+  v6: fd7a:115c:a1e0::/48
+
+derp:
+  # Use Tailscale's public DERP relays. You are self-hosting COORDINATION, not
+  # relays - and DERP will not work through Cloudflare Tunnel anyway.
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default
+  auto_update_enabled: true
+  update_frequency: 24h
+
+# Devices must re-authenticate on this cadence. Short is safer; too short on a
+# headless box you cannot easily reach is a self-inflicted outage.
+ephemeral_node_inactivity_timeout: 30m
+node_update_check_interval: 10s
+
+dns:
+  magic_dns: true
+  base_domain: ts.__DOMAIN__     # must NOT equal server_url's domain
+  nameservers:
+    global:
+      - 1.1.1.1
+  # Resolve LAN names over the tunnel by pointing at the Pi's own CoreDNS.
+  # Without this, internal hostnames work at home and fail on cellular.
+  split:
+    __DOMAIN__:
+      - __PI_IP__

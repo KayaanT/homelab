@@ -1,0 +1,11 @@
+[Unit]
+Description=Off-box backup of the homelab cluster
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/restic-backup.env
+ExecStart=/usr/local/bin/restic-backup.sh
+Nice=19
+IOSchedulingClass=idle

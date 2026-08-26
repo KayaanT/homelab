@@ -1,0 +1,30 @@
+# Split-horizon DNS for the LAN, served from the Pi so it survives cluster
+# reboots. Point the router's DHCP DNS option at this host.
+
+__DOMAIN__ {
+    log
+    errors
+    # Watches Services, Ingresses and HTTPRoutes in the cluster and answers
+    # with their LoadBalancer / Gateway addresses. Stays in sync automatically.
+    k8s_gateway __DOMAIN__ {
+        apex __DOMAIN__
+        ttl 30
+        kubeconfig /kubeconfig
+    }
+    # If the cluster API is unreachable, fall through rather than SERVFAIL.
+    forward . 1.1.1.1 1.0.0.1
+    cache 30
+}
+
+# Everything else
+. {
+    log
+    errors
+    forward . 1.1.1.1 1.0.0.1 {
+        max_concurrent 1000
+    }
+    cache 300
+    loop
+    reload
+    health
+}

@@ -86,6 +86,8 @@ clusters/lab/  everything else                            (GitOps, wave-ordered)
   platform/      gateway, split-horizon DNS, tailscale, observability
   workloads/     ollama, open-webui, mlflow
 scripts/       configure.sh, openstack-mode.sh, k8s-mode.sh
+pi/            OPTIONAL phase 4b - out-of-band box: DNS, watchdog,
+               off-box backups, and (tier 2) Headscale
 docs/          RUNBOOK.md (full build guide), FROM-WINDOWS.md (BIOS + install),
                WIFI.md (USB NIC), decisions.md, versions.md
 ```
@@ -129,6 +131,7 @@ Then seal the two secrets (`infra/cert-manager/SEALING.md`,
 - [ ] Phase 2 — ArgoCD / GitOps
 - [ ] Phase 3 — Rook-Ceph
 - [ ] Phase 4 — DNS, TLS, Tailscale
+- [ ] Phase 4b — Raspberry Pi out-of-band box *(optional)*
 - [ ] Phase 5 — observability
 - [ ] Phase 6 — AI workloads
 - [ ] Phase 7 — OpenStack (Kolla-Ansible)

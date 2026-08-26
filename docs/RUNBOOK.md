@@ -17,6 +17,7 @@
 | 2 | ArgoCD / GitOps | `bootstrap/` |
 | 3 | Rook-Ceph | `clusters/lab/infra/rook-ceph-{operator,cluster}/` |
 | 4 | DNS, TLS, Tailscale | `clusters/lab/infra/cert-manager/`, `clusters/lab/platform/{gateway,dns,tailscale}/` |
+| 4b | **Optional** — Pi out-of-band box | `pi/` |
 | 5 | Observability | `clusters/lab/platform/observability/` |
 | 6 | AI workloads | `clusters/lab/workloads/` |
 | 7 | OpenStack | `scripts/openstack-mode.sh`, `scripts/k8s-mode.sh` (guest built by hand, §7) |
@@ -461,16 +462,17 @@ resolve at home but not on cellular). Both are in
 Tailscale + DNS-01 together is a strong story: fully remotely accessible,
 entirely closed inbound firewall.
 
-### Optional, later — Headscale
+### Phase 4b, optional — the Raspberry Pi out-of-band box
 
-Headscale is an open-source reimplementation of Tailscale's coordination
-server. Self-hosting it means the control plane is yours and the network does
-not depend on Tailscale's SaaS. It is a genuinely strong resume item.
+A spare Pi 3 is too small to be a Kubernetes node and exactly right for the
+services that should survive the cluster being down: LAN DNS, an uptime
+watchdog, off-box backups, and — optionally — Headscale.
 
-**Treat it as strictly optional and do it last.** It is the component most
-likely to break remote access, and losing remote access to a headless box is
-the one failure that means physically walking over to it. Get everything else
-stable on hosted Tailscale first; migrate only if you want to.
+This also closes two honest gaps in the main plan: DNS currently dies with the
+cluster, and Velero "backups" land on the same physical disk as the data.
+
+Full guide in `pi/README.md`. Do Tier 1 (DNS, watchdog, backups — about an
+hour) before considering Tier 2 (Headscale).
 
 **Phase 4 done when:** an internal hostname serves a valid public cert, and with
 your Mac off home WiFi (cellular hotspot) + Tailscale connected,
