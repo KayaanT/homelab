@@ -1,4 +1,31 @@
-# Single-Node AI-Infra Homelab — Build Runbook
+# Build Runbook
+
+> **Reading this cold?** This repo contains the working files; the sections
+> below explain *why* each one is shaped the way it is. Start with the README
+> for the architecture and the RAM budget, then `docs/decisions.md`, then here.
+>
+> **Before the first ArgoCD sync, read `docs/versions.md` and verify every
+> pinned chart version.** They were written from memory and may be stale.
+
+## Phase → file map
+
+| Phase | What | Files |
+|---|---|---|
+| 0 | Host prep, disk wipe | `host/phase0-prep.sh`, `host/wipe-ceph-disks.sh` |
+| 1 | kubeadm + Cilium | `host/kubeadm.yaml`, `host/phase1-cluster-init.sh`, `clusters/lab/infra/cilium/` |
+| 2 | ArgoCD / GitOps | `bootstrap/` |
+| 3 | Rook-Ceph | `clusters/lab/infra/rook-ceph-{operator,cluster}/` |
+| 4 | DNS, TLS, Twingate | `clusters/lab/infra/cert-manager/`, `clusters/lab/platform/{gateway,dns,twingate}/` |
+| 5 | Observability | `clusters/lab/platform/observability/` |
+| 6 | AI workloads | `clusters/lab/workloads/` |
+| 7 | OpenStack | `scripts/openstack-mode.sh`, `scripts/k8s-mode.sh` (guest built by hand, §7) |
+| 8 | Packaging | `README.md`, `docs/decisions.md` |
+
+Config lives in one place: edit `homelab.env`, then run `./scripts/configure.sh`
+to substitute the `__PLACEHOLDER__` tokens across every manifest.
+
+---
+
 
 ## Context
 
