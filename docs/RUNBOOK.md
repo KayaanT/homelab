@@ -55,7 +55,7 @@ OpenStack.
 | GitHub account | free | The GitOps repo | Blocking — no fallback |
 | Tailscale account (free tier) | free | Remote access | Blocking for Phase 4 |
 | Ubuntu Server 24.04 LTS ISO on a USB stick | free | Phase 0 | Blocking |
-| Wired ethernet to the box | — | Ceph/etcd latency, Cilium L2, Phase 7 bridge | Blocking |
+| USB3 gigabit ethernet adapter | ~$15 | Cilium L2 announcements; Phase 7 bridge | Blocking — see `docs/WIFI.md` |
 
 **No-domain fallback:** cert-manager can run a self-signed `ClusterIssuer` and
 you install its CA cert on your devices. Everything works; browsers are happy
@@ -136,8 +136,11 @@ nvme0n1p5 120 GiB    RAW — Ceph OSD 1   (no filesystem, no LVM)
 Install Ubuntu Server 24.04 LTS, manual partitioning per above. Create p4/p5 as
 unformatted partitions — do not assign mount points.
 
-Set a static IP in netplan (or a DHCP reservation). Note it; it is referenced
-throughout as `$NODE_IP`.
+Wire the USB ethernet adapter in and set a **DHCP reservation** on the router
+for its MAC (preferred over a static netplan address — it survives router
+changes and cannot collide). Note the address; it is referenced throughout as
+`$NODE_IP`. Keep WiFi configured as a lower-priority fallback so a dead USB NIC
+does not strand a headless box — see `docs/WIFI.md`.
 
 ```bash
 # --- laptop chassis only: stay awake with the lid shut ---
