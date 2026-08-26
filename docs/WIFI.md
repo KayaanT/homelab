@@ -17,7 +17,7 @@ arrives; nothing gets rebuilt.
 | 4 cert-manager, Tailscale | Yes. The k8s-gateway DNS app needs a LoadBalancer IP, so leave it unsynced until the adapter arrives |
 | 5 Observability | Yes — reach Grafana over Tailscale |
 | 6 AI workloads | Yes — reach Open WebUI over Tailscale |
-| 7 OpenStack | **No.** Needs a bridge |
+| 7 OpenStack | Yes, with NAT + routed floating IPs instead of a bridge — see below |
 | 8 Writeup | Yes |
 
 **Test L2 announcements before assuming you need the adapter.** Some access
@@ -47,11 +47,13 @@ for addresses that aren't its own. Consumer access points handle this
 inconsistently — many run proxy-ARP or client isolation and silently drop the
 replies. The Service gets an IP and simply never responds.
 
-**Bridged networking for the OpenStack guest.** This one is a hard limit, not a
-misconfiguration. An 802.11 data frame in client mode carries three MAC address
-fields, so a station cannot transmit a frame with a source MAC other than its
-own. A Linux bridge fundamentally requires that. There is no config that fixes
-it; `parprouted`/`ebtables` workarounds are fragile and route-only.
+**Bridged networking for the OpenStack guest.** An 802.11 data frame in client
+mode carries three MAC address fields, so a station cannot transmit a frame with
+a source MAC other than its own, and a Linux bridge fundamentally requires that.
+This is a hard limit of the standard.
+
+It does **not** block OpenStack — see "OpenStack without a bridge" below. What
+you lose is floating IPs appearing as first-class addresses on the home LAN.
 
 **Ceph and etcd are *not* reasons.** On a single node, Ceph replicates between
 two OSDs on the same local disk and etcd fsyncs to local storage. Neither
@@ -166,3 +168,60 @@ The plan still works, with two changes:
 
 You lose hands-on LoadBalancer/ARP, which is a core Kubernetes concept worth
 having done at least once. That is the actual cost — not capability.
+
+
+## OpenStack without a bridge
+
+The guest gets two virtual NICs. Inside the guest they are ordinary virtio
+ethernet devices, so the host's WiFi is irrelevant to them:
+
+```bash
+virt-install ... \
+  --network network=default \                      # NIC1: NAT, management/SSH
+  --network network=openstack-ext,model=virtio      # NIC2: neutron_external_interface
+```
+
+Create the isolated network once on the host:
+
+```bash
+cat > /tmp/os-ext.xml <<'XML'
+<network>
+  <name>openstack-ext</name>
+  <bridge name='virbr-osext' stp='on' delay='0'/>
+</network>
+XML
+sudo virsh net-define /tmp/os-ext.xml
+sudo virsh net-autostart openstack-ext && sudo virsh net-start openstack-ext
+```
+
+No `<forward>` and no `<ip>`: Neutron wants a raw L2 segment with no address of
+its own, and will attach it to `br-ex` itself.
+
+In Kolla's `globals.yml`:
+
+```yaml
+network_interface: "ens3"              # NIC1, has the NAT address
+neutron_external_interface: "ens4"     # NIC2, MUST have no IP configured
+```
+
+Then reach the floating IPs. Either add a host route:
+
+```bash
+sudo ip route add 172.24.4.0/24 via <guest-NAT-address>
+# in the guest: sysctl -w net.ipv4.ip_forward=1
+```
+
+…or, better, install Tailscale **inside the guest** and advertise the range:
+
+```bash
+sudo tailscale up --advertise-routes=172.24.4.0/24 --accept-dns=false
+```
+
+Approve the route in the admin console and OpenStack floating IPs become
+reachable from your Mac and phone anywhere — which the bridge approach could
+never do, since it only ever worked on the home LAN.
+
+**What you actually lose without a bridge:** floating IPs are not pingable from
+an arbitrary LAN device without a route. The Phase 7 milestone — boot a Cirros
+instance, assign a floating IP, ping it, SSH in, inspect Placement allocations —
+is unaffected.

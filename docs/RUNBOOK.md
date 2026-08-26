@@ -56,7 +56,7 @@ OpenStack.
 | GitHub account | free | The GitOps repo | Blocking — no fallback |
 | Tailscale account (free tier) | free | Remote access | Blocking for Phase 4 |
 | Ubuntu Server 24.04 LTS ISO on a USB stick | free | Phase 0 | Blocking |
-| USB3 gigabit ethernet adapter | ~$15 | LAN LoadBalancer IPs (Phase 4); OpenStack bridge (Phase 7) | **Not blocking.** Build Phases -1→6 on WiFi and add it later — see `docs/WIFI.md` |
+| USB3 gigabit ethernet adapter | ~$15 | LAN LoadBalancer IPs; a more realistic Phase 7 topology | **Optional.** The entire build works on WiFi — see `docs/WIFI.md` |
 
 **No-domain fallback:** cert-manager can run a self-signed `ClusterIssuer` and
 you install its CA cert on your devices. Everything works; browsers are happy
@@ -531,9 +531,13 @@ sudo apt-get install -y qemu-kvm libvirt-daemon-system virtinst
 cat /sys/module/kvm_intel/parameters/nested    # must print Y
 ```
 
-Create a real Linux **bridge (br0)** over the ethernet NIC so the guest sits
-directly on the LAN — floating IPs must be reachable from your Mac. (Bridging
-over WiFi does not work; this is the main reason for the wired requirement.)
+**Wired:** create a Linux **bridge (br0)** over the ethernet NIC so the guest
+sits directly on the LAN and floating IPs are ordinary LAN addresses.
+
+**WiFi:** bridging is impossible over 802.11, so give the guest two virtual NICs
+(NAT for management, an isolated network for `neutron_external_interface`) and
+reach floating IPs by host route or a Tailscale subnet route from inside the
+guest. Full recipe in `docs/WIFI.md`. The Phase 7 milestone is unaffected.
 
 ### 7b. Mode-switch script
 
