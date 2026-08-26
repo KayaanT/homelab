@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: __GITHUB_REPO__
+    targetRevision: main
+    path: clusters/lab/platform/gateway/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gateway
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]

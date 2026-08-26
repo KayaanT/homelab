@@ -1,0 +1,44 @@
+# Gateway API, implemented by Cilium - no ingress-nginx needed.
+# One wildcard cert terminates TLS for every service on the LAN.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-lab
+  namespace: gateway
+spec:
+  secretName: wildcard-lab-tls
+  issuerRef:
+    # Start on 'letsencrypt-staging'. Flip to 'letsencrypt' once you have seen
+    # a successful issuance - production rate limits are unforgiving.
+    name: letsencrypt-staging
+    kind: ClusterIssuer
+  dnsNames:
+    - "__DOMAIN__"
+    - "*.__DOMAIN__"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: lan
+  namespace: gateway
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: "*.__DOMAIN__"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: wildcard-lab-tls
+      allowedRoutes:
+        namespaces:
+          from: All      # HTTPRoutes may live beside their workloads
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: "*.__DOMAIN__"
+      allowedRoutes:
+        namespaces:
+          from: All

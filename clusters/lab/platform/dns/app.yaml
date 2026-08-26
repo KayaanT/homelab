@@ -1,0 +1,36 @@
+# The in-cluster CoreDNS already ships with kubeadm - nothing to install there.
+# This is the interesting half: a second CoreDNS on the LAN that answers
+# *.__DOMAIN__ with the Cilium LoadBalancer IPs of Gateways and Services.
+#
+# Point your router's DNS at this Service's LoadBalancer IP and the same
+# hostname resolves publicly to nothing and internally to your cluster.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: k8s-gateway-dns
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://ori-edge.github.io/k8s_gateway/
+    chart: k8s-gateway
+    targetRevision: 2.4.0   # VERIFY - see docs/versions.md
+    helm:
+      values: |
+        domain: __DOMAIN__
+        watchedResources: ["Ingress", "Service", "HTTPRoute"]
+        service:
+          type: LoadBalancer
+          # Pin it so the router's DNS setting never has to change.
+          loadBalancerIP: __LB_RANGE_START__
+        resources:
+          requests: {cpu: 25m, memory: 32Mi}
+          limits:   {memory: 64Mi}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dns
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
