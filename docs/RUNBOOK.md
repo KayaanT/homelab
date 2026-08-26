@@ -12,6 +12,7 @@
 | Phase | What | Files |
 |---|---|---|
 | -1 | Wipe Windows, install Ubuntu, BIOS | `docs/FROM-WINDOWS.md`, `docs/WIFI.md` |
+| 0 | Ceph partitions from free space | `host/partition-ceph-disks.sh` |
 | 0 | Host prep, disk wipe | `host/phase0-prep.sh`, `host/wipe-ceph-disks.sh` |
 | 1 | kubeadm + Cilium | `host/kubeadm.yaml`, `host/phase1-cluster-init.sh`, `clusters/lab/infra/cilium/` |
 | 2 | ArgoCD / GitOps | `bootstrap/` |
@@ -124,9 +125,11 @@ nvme0n1p3 200 GiB    LVM PV → vg0
                        lv_root     110 GiB  (/, incl. /var/lib/containerd)
                        lv_libvirt   80 GiB  (/var/lib/libvirt/images)
                        ~10 GiB free for LVM snapshots
-nvme0n1p4 120 GiB    RAW — Ceph OSD 0   (no filesystem, no LVM)
-nvme0n1p5 120 GiB    RAW — Ceph OSD 1   (no filesystem, no LVM)
-~20 GiB unallocated tail (spare / third OSD later)
+~240 GiB unallocated  <- left free by the installer; host/partition-ceph-disks.sh
+                         carves p4 and p5 out of it after the fact, so you never
+                         have to fight subiquity's "leave unformatted" flow
+nvme0n1p4 ~120 GiB   RAW — Ceph OSD 0   (created post-install, no filesystem)
+nvme0n1p5 ~120 GiB   RAW — Ceph OSD 1   (created post-install, no filesystem)
 ```
 
 **No swap.** Kubelet requires it off.

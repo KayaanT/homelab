@@ -102,7 +102,7 @@ Full step-by-step: **[`docs/RUNBOOK.md`](docs/RUNBOOK.md)**. Short version:
 
 # 0. on the box, at the keyboard
 ./host/phase0-prep.sh
-./host/wipe-ceph-disks.sh /dev/nvme0n1p4 /dev/nvme0n1p5
+sudo ./host/partition-ceph-disks.sh    # carves the OSD partitions from free space
 
 # 1. fill in your values, then bake them into the manifests
 vim homelab.env && ./scripts/configure.sh

@@ -52,22 +52,32 @@ On the Windows box, before wiping:
 
 - **Connect WiFi in the installer.** The Ubuntu Server installer supports WPA2 —
   it will ask. Do it here; configuring it afterward from a console is worse.
-- **Manual partitioning**, exactly as in the README:
+- **Manual partitioning — but only three partitions.** You do *not* need to
+  create the Ceph partitions here. Create what's needed to boot, then stop and
+  leave the rest of the disk as **free space**:
 
 ```
 nvme0n1p1   1 GiB    EFI System Partition
 nvme0n1p2   2 GiB    /boot            ext4
 nvme0n1p3 200 GiB    LVM PV -> vg0
-                       lv_root    110 GiB  /            ext4
+                       lv_root    110 GiB  /                        ext4
                        lv_libvirt  80 GiB  /var/lib/libvirt/images  ext4
-nvme0n1p4 120 GiB    leave UNFORMATTED, no mount point   <- Ceph OSD 0
-nvme0n1p5 120 GiB    leave UNFORMATTED, no mount point   <- Ceph OSD 1
+            ~240 GiB  leave UNALLOCATED   <- Ceph OSDs, created post-install
 ```
 
-  The installer will not let you create a partition with no filesystem in some
-  flows. If so, create p4/p5 as ext4 with no mount point and let
-  `host/wipe-ceph-disks.sh` strip the signatures afterward — that script exists
-  precisely for this.
+  After the install, `host/partition-ceph-disks.sh` carves the OSD partitions
+  out of that free space and wipes them. It only ever writes to unallocated
+  space — it never resizes, moves, or deletes an existing partition, so it
+  cannot damage the installed system.
+
+  This is deliberately easier than getting all five right in the installer.
+  Subiquity's "leave unformatted" flow is the fiddliest part of the whole
+  install, and skipping it costs nothing.
+
+  **Do not use "Use an entire disk".** Guided mode consumes the whole disk for
+  the LVM PV, and reclaiming space afterwards means shrinking a physical volume
+  and then the partition under it — genuinely risky, and needing live media for
+  the root filesystem. Leaving free space up front avoids all of that.
 
 - **No swap partition.** If the installer insists, make it and
   `host/phase0-prep.sh` will disable it.
@@ -115,9 +125,15 @@ before WiFi associates, and services that bind to the node IP can come up wrong.
 
 ```bash
 ssh homelab@<ip>                             # from your Mac, key auth
-lsblk -f                                     # p4/p5 present
+lsblk -f                                     # p1-p3 present, free space at the end
 cat /sys/module/kvm_intel/parameters/nested  # Y  (VT-x is on)
 ping -c3 1.1.1.1
 ```
 
-Then continue with `host/phase0-prep.sh`.
+Then:
+
+```bash
+git clone https://github.com/KayaanT/homelab && cd homelab
+./host/phase0-prep.sh
+sudo ./host/partition-ceph-disks.sh          # creates + wipes the OSD partitions
+```
