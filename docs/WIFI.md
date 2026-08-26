@@ -1,6 +1,44 @@
 # Networking on a box with no ethernet port
 
-## Why wired is required
+## Short version: WiFi is fine to start
+
+You do **not** need the ethernet adapter to begin. Phases -1 through 6 all work
+over WiFi — installing Ubuntu, kubeadm, Cilium, ArgoCD, Rook-Ceph, cert-manager,
+Tailscale, observability, and the AI workloads. Plug the adapter in when it
+arrives; nothing gets rebuilt.
+
+| Phase | Works on WiFi? |
+|---|---|
+| -1 Install Ubuntu | Yes — the server installer connects to WPA2 |
+| 0 Host prep | Yes |
+| 1 kubeadm + Cilium | Yes. Cilium installs and routes normally; only the LoadBalancer smoke test at the end may not answer |
+| 2 ArgoCD | Yes |
+| 3 Rook-Ceph | Yes — replication is local disk to local disk |
+| 4 cert-manager, Tailscale | Yes. The k8s-gateway DNS app needs a LoadBalancer IP, so leave it unsynced until the adapter arrives |
+| 5 Observability | Yes — reach Grafana over Tailscale |
+| 6 AI workloads | Yes — reach Open WebUI over Tailscale |
+| 7 OpenStack | **No.** Needs a bridge |
+| 8 Writeup | Yes |
+
+**Test L2 announcements before assuming you need the adapter.** Some access
+points forward gratuitous ARP without complaint:
+
+```bash
+kubectl create deploy nginx --image=nginx
+kubectl expose deploy nginx --type=LoadBalancer --port=80
+kubectl get svc nginx                      # note the EXTERNAL-IP
+curl -m5 http://<EXTERNAL-IP>              # from your Mac, on the same LAN
+```
+
+If that returns nginx's page, your AP cooperates and the adapter is only needed
+for Phase 7.
+
+Either way, **Tailscale makes access a non-issue**: once the operator is up you
+reach every service by its tailnet name, at home and on cellular, whether or not
+LAN LoadBalancer IPs work. The LB IPs are there to learn the pattern, not to be
+the access path.
+
+## Why wired is required eventually
 
 Two things need it. Neither is what you might assume.
 

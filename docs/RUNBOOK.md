@@ -56,7 +56,7 @@ OpenStack.
 | GitHub account | free | The GitOps repo | Blocking — no fallback |
 | Tailscale account (free tier) | free | Remote access | Blocking for Phase 4 |
 | Ubuntu Server 24.04 LTS ISO on a USB stick | free | Phase 0 | Blocking |
-| USB3 gigabit ethernet adapter | ~$15 | Cilium L2 announcements; Phase 7 bridge | Blocking — see `docs/WIFI.md` |
+| USB3 gigabit ethernet adapter | ~$15 | LAN LoadBalancer IPs (Phase 4); OpenStack bridge (Phase 7) | **Not blocking.** Build Phases -1→6 on WiFi and add it later — see `docs/WIFI.md` |
 
 **No-domain fallback:** cert-manager can run a self-signed `ClusterIssuer` and
 you install its CA cert on your devices. Everything works; browsers are happy
