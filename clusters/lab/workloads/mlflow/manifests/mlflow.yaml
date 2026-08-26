@@ -36,7 +36,7 @@ spec:
               exec mlflow server \
                 --host 0.0.0.0 --port 5000 \
                 --backend-store-uri sqlite:////data/mlflow.db \
-                --artifacts-destination s3://$${BUCKET_NAME}
+                --artifacts-destination s3://${BUCKET_NAME}
           ports: [{containerPort: 5000}]
           env:
             # Injected by the OBC: endpoint + bucket name.
