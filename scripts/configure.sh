@@ -16,14 +16,15 @@ declare -A MAP=(
   [__LB_RANGE_END__]="$LB_RANGE_END"
   [__GITHUB_REPO__]="$GITHUB_REPO"
   [__ACME_EMAIL__]="$ACME_EMAIL"
-  [__TWINGATE_NETWORK__]="$TWINGATE_NETWORK"
+  [__TAILNET_NAME__]="$TAILNET_NAME"
+  [__LAN_CIDR__]="$LAN_CIDR"
   [__NIC_REGEX__]="$NIC_REGEX"
 )
 
 for k in "${!MAP[@]}"; do
   v="${MAP[$k]}"
   case "$v" in
-    *CHANGEME*|*example.com*|yourorg) echo "WARNING: $k is still a default ($v)" >&2 ;;
+    *CHANGEME*|*example.com*|yourtailnet*) echo "WARNING: $k is still a default ($v)" >&2 ;;
   esac
   # -i '' on BSD/macOS sed, -i on GNU
   if sed --version >/dev/null 2>&1; then SED=(sed -i); else SED=(sed -i ''); fi

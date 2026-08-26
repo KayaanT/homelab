@@ -1,0 +1,19 @@
+# Subnet router + exit node in one device.
+#
+# The subnet router is the piece Twingate could only approximate: it puts the
+# whole LAN on the tailnet, so the router admin page, a printer, IPMI, and the
+# OpenStack Horizon UI inside the KVM guest are all reachable remotely without
+# installing anything on them.
+apiVersion: tailscale.com/v1alpha1
+kind: Connector
+metadata:
+  name: lan
+spec:
+  hostname: homelab-lan
+  tags:
+    - "tag:k8s"
+  subnetRouter:
+    advertiseRoutes:
+      - "__LAN_CIDR__"
+  # Route a laptop's full traffic through home when on untrusted wifi.
+  exitNode: true

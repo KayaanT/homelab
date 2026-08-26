@@ -53,13 +53,53 @@ gains a cluster that is always up. Since the goal is understanding Nova
 scheduling and Neutron networking rather than benchmarking guests, that is the
 right trade.
 
-## Twingate over a port-forwarded VPN
+## Tailscale over Twingate (and over a port-forwarded VPN)
 
-WireGuard would mean opening a UDP port on the home router and owning the key
-rotation. The Twingate connector dials *outbound* to a relay, so the router keeps
-every inbound port closed. Paired with DNS-01 certificates — which prove domain
-ownership via a TXT record rather than an inbound HTTP challenge — the cluster is
-fully reachable from anywhere with **zero** inbound exposure.
+All three give remote access. The differences are structural.
+
+A **port-forwarded WireGuard** endpoint means opening a UDP port on the home
+router and owning key rotation by hand. Ruled out immediately.
+
+**Twingate** is a ZTNA proxy: you define Resources and grant per-resource
+access, traffic is brokered client -> relay -> connector, and a client never
+holds an IP on the LAN, so lateral movement is structurally impossible. That is
+genuinely stronger isolation, and it is the right model for an organisation with
+many users and an audit requirement.
+
+**Tailscale** is a mesh VPN: devices join a tailnet and talk peer-to-peer over
+WireGuard, with relays only as a NAT-traversal fallback.
+
+Tailscale wins here because Twingate's advantages are all multi-user features
+that never activate with a single operator, while Tailscale's advantages apply
+immediately and every day:
+
+- **Subnet router** — the whole LAN becomes reachable, including devices that
+  cannot run a client: the router admin page, a printer, IPMI, and the
+  OpenStack Horizon UI inside the KVM guest.
+- **Exit node** — route a laptop's full traffic through home on untrusted wifi.
+- **Funnel** — expose exactly one path to the public internet with a
+  Tailscale-provisioned TLS cert and still no inbound port. This turns ArgoCD's
+  3-minute Git polling into an instant push-triggered sync, and it is the
+  general answer for any future project needing a public callback.
+- **Peer-to-peer** — direct WireGuard rather than a relay hop, so latency and
+  throughput are materially better.
+- **Self-hostable** — Headscale, below. Twingate has no equivalent.
+
+**Accepted cost:** a compromised device gets network-level reach across the
+tailnet rather than access to one named resource. Mitigated with ACL tags and
+short key expiry, but it is a real downgrade in blast radius, and the honest
+reason to accept it is that there is one user and one device class here.
+
+## Headscale — optional, later
+
+Headscale is an open-source reimplementation of Tailscale's coordination
+server. Running it on this cluster means the control plane is self-hosted -
+no dependency on Tailscale's SaaS for the network to function.
+
+Deferred rather than done first, deliberately: it is the piece most likely to
+break remote access, and losing remote access to a headless box is the one
+failure that requires physically walking over to it. Get the cluster stable and
+reachable on hosted Tailscale, then migrate.
 
 ## Ollama over vLLM
 

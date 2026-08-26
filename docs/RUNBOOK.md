@@ -15,7 +15,7 @@
 | 1 | kubeadm + Cilium | `host/kubeadm.yaml`, `host/phase1-cluster-init.sh`, `clusters/lab/infra/cilium/` |
 | 2 | ArgoCD / GitOps | `bootstrap/` |
 | 3 | Rook-Ceph | `clusters/lab/infra/rook-ceph-{operator,cluster}/` |
-| 4 | DNS, TLS, Twingate | `clusters/lab/infra/cert-manager/`, `clusters/lab/platform/{gateway,dns,twingate}/` |
+| 4 | DNS, TLS, Tailscale | `clusters/lab/infra/cert-manager/`, `clusters/lab/platform/{gateway,dns,tailscale}/` |
 | 5 | Observability | `clusters/lab/platform/observability/` |
 | 6 | AI workloads | `clusters/lab/workloads/` |
 | 7 | OpenStack | `scripts/openstack-mode.sh`, `scripts/k8s-mode.sh` (guest built by hand, §7) |
@@ -41,7 +41,7 @@ boot — the cluster must stay up to be useful as a deploy target.
 
 Decided: **kubeadm**, **Cilium** (Calico dropped), **Rook-Ceph on two raw
 partitions of the internal SSD**, **ArgoCD** as the deployment mechanism,
-**Twingate** for remote access, **CPU-only** AI workloads, **Kolla-Ansible** for
+**Tailscale** for remote access, **CPU-only** AI workloads, **Kolla-Ansible** for
 OpenStack.
 
 ---
@@ -53,7 +53,7 @@ OpenStack.
 | A domain on Cloudflare | ~$10/yr | Real TLS certs via DNS-01 | Fallback below |
 | Cloudflare API token (Zone:DNS:Edit, scoped to that zone) | free | cert-manager | — |
 | GitHub account | free | The GitOps repo | Blocking — no fallback |
-| Twingate account (free tier) | free | Remote access | Blocking for Phase 4 |
+| Tailscale account (free tier) | free | Remote access | Blocking for Phase 4 |
 | Ubuntu Server 24.04 LTS ISO on a USB stick | free | Phase 0 | Blocking |
 | Wired ethernet to the box | — | Ceph/etcd latency, Cilium L2, Phase 7 bridge | Blocking |
 
@@ -101,7 +101,7 @@ most interesting content for the writeup.
 | Rook: RGW (S3) | 0.5 GB | |
 | ArgoCD | 0.6 GB | dex disabled |
 | cert-manager + sealed-secrets | 0.2 GB | |
-| Twingate connector | 0.1 GB | |
+| Tailscale operator + connector | 0.2 GB | subnet router + exit node |
 | kube-prometheus-stack | 1.8 GB | 7d retention, 30s scrape |
 | **Platform subtotal** | **~10.4 GB** | |
 | **Free for workloads** | **~5.5 GB** | fits Ollama + a 3B Q4 model |
@@ -217,7 +217,7 @@ control plane under you.
 
 Add `k8s.lab.<yourdomain>` → `$NODE_IP` to your DNS (or `/etc/hosts` for now).
 Using a DNS name rather than a bare IP puts the right SAN in the API server cert,
-so you aren't regenerating certs when you reach it through Twingate later.
+so you aren't regenerating certs when you reach it through Tailscale later.
 
 `kubeadm.yaml` (commit this to the repo):
 
@@ -358,7 +358,7 @@ carries `argocd.argoproj.io/sync-wave`:
 | 0 | CRDs, cert-manager, sealed-secrets |
 | 1 | Rook operator |
 | 2 | CephCluster, StorageClasses |
-| 3 | observability, Gateway, DNS, Twingate |
+| 3 | observability, Gateway, DNS, Tailscale |
 | 4 | workloads |
 
 Ordering becomes declarative rather than a README instruction.
@@ -437,16 +437,39 @@ resolution. Deploy **k8s_gateway** as a LoadBalancer Service answering
 split-horizon DNS: the same name resolves publicly to nothing and internally to
 your cluster.
 
-**Twingate:** deploy the Kubernetes connector via Helm, credentials as a Sealed
-Secret. Define Resources for the LB IP range and the API endpoint. The connector
-dials *out*, so `kubectl` works from anywhere with no port-forward and no exposed
-WireGuard endpoint.
+**Tailscale:** deploy the Kubernetes operator via Helm, OAuth credentials as a
+Sealed Secret. It connects outbound, so the router keeps every inbound port
+closed. Three pieces beyond plain remote access:
 
-Twingate + DNS-01 together is a strong story: fully remotely accessible, entirely
-closed inbound firewall.
+- a **Connector** advertising the LAN CIDR (subnet router) and acting as an
+  **exit node**
+- the **API server proxy**, putting the cluster API on the tailnet as its own
+  device so `kubectl` needs no LAN IPs
+- a **Funnel** Ingress on ArgoCD's `/api/webhook`, so GitHub pushes trigger an
+  immediate sync instead of waiting for the 3-minute poll
+
+Two manual console steps that are easy to miss: **approve the advertised subnet
+route** (the device looks healthy while nothing routes), and set **split DNS**
+for your domain to the k8s-gateway LoadBalancer IP (without it, internal names
+resolve at home but not on cellular). Both are in
+`clusters/lab/platform/tailscale/SEALING.md`.
+
+Tailscale + DNS-01 together is a strong story: fully remotely accessible,
+entirely closed inbound firewall.
+
+### Optional, later — Headscale
+
+Headscale is an open-source reimplementation of Tailscale's coordination
+server. Self-hosting it means the control plane is yours and the network does
+not depend on Tailscale's SaaS. It is a genuinely strong resume item.
+
+**Treat it as strictly optional and do it last.** It is the component most
+likely to break remote access, and losing remote access to a headless box is
+the one failure that means physically walking over to it. Get everything else
+stable on hosted Tailscale first; migrate only if you want to.
 
 **Phase 4 done when:** an internal hostname serves a valid public cert, and with
-your Mac off home WiFi (cellular hotspot) + Twingate connected,
+your Mac off home WiFi (cellular hotspot) + Tailscale connected,
 `kubectl get nodes` works.
 
 ---
@@ -474,7 +497,7 @@ No GPU, so the demonstration is the *platform*, not throughput.
 
 - **Ollama** with a Ceph RBD PVC for models, serving a small quantized model
   (Qwen3 4B or Llama 3.2 3B, Q4). A few tokens/sec — enough to be real.
-  **Open WebUI** in front, via Gateway API, reachable over Twingate.
+  **Open WebUI** in front, via Gateway API, reachable over Tailscale.
   Chosen over a CPU vLLM build for reliability; note vLLM as the GPU path in
   `docs/decisions.md`.
 - **MLflow** — tracking server, artifacts in the Ceph RGW bucket, metadata in
@@ -560,7 +583,7 @@ The system is half the deliverable.
 
 - **README** — Mermaid architecture diagram + the RAM budget table.
 - **`docs/decisions.md`** — Cilium over Calico; kube-proxy replacement; `size: 2`
-  with `failureDomain: osd`; single mon; Twingate over port-forwarded WireGuard;
+  with `failureDomain: osd`; single mon; Tailscale over Twingate and port-forwarded WireGuard;
   Ollama over vLLM; OpenStack in a guest rather than dual-boot. Reasoned
   tradeoffs under a hard constraint read far better than a component list.
 - **Screenshots** — Hubble flow map, Grafana Ceph dashboard, ArgoCD app tree,
@@ -580,7 +603,7 @@ The system is half the deliverable.
 | 1 | node Ready; `cilium status` green; **no kube-proxy pods**; LB Service answers from your Mac |
 | 2 | ArgoCD self-managed and Synced; deleted resources self-heal |
 | 3 | `HEALTH_OK`, 2 OSDs; PVC binds and writes; S3 put+get works |
-| 4 | valid public cert on an internal name; `kubectl` works over cellular + Twingate |
+| 4 | valid public cert on an internal name; `kubectl` works over cellular + Tailscale |
 | 5 | Ceph/Cilium dashboards populated; downing an OSD fires an alert |
 | 6 | Open WebUI answers; MLflow artifact lands in Ceph; Velero restore succeeds |
 | 7 | Cirros boots; floating IP pings from host; Placement shows the claim |

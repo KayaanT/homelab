@@ -1,0 +1,31 @@
+# Funnel: exposes exactly this one path to the PUBLIC internet, with a TLS cert
+# Tailscale provisions, and still no inbound port on the router.
+#
+# Why bother: ArgoCD otherwise polls Git every 3 minutes. With this, GitHub
+# posts a webhook the instant you push and the sync is immediate. It is also
+# the mechanism for any future project needing a public callback - Stripe,
+# OAuth redirects, a demo link for someone else.
+#
+# Point the GitHub webhook at:
+#   https://argocd-webhook.__TAILNET_NAME__/api/webhook
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-webhook
+  namespace: argocd
+  annotations:
+    tailscale.com/funnel: "true"
+    tailscale.com/hostname: "argocd-webhook"
+spec:
+  ingressClassName: tailscale
+  rules:
+    - http:
+        paths:
+          - path: /api/webhook
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port: {number: 80}
+  tls:
+    - hosts: ["argocd-webhook"]

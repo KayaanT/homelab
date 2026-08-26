@@ -1,0 +1,60 @@
+# Tailscale replaces the Twingate connector. Both give remote access with zero
+# inbound ports, but Tailscale is peer-to-peer WireGuard rather than a relayed
+# proxy, and it brings three things Twingate has no equivalent for:
+#   - subnet router: reach LAN devices that cannot run a client
+#   - exit node: route a laptop's traffic through home
+#   - Funnel: expose ONE service publicly with TLS, no port forward
+# See docs/decisions.md.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://pkgs.tailscale.com/helmcharts
+    chart: tailscale-operator
+    targetRevision: 1.78.1   # VERIFY - see docs/versions.md
+    helm:
+      values: |
+        oauth:
+          # Left empty on purpose: credentials come from the sealed secret
+          # named 'operator-oauth' in this namespace. See SEALING.md.
+          clientId: ""
+          clientSecret: ""
+        apiServerProxyConfig:
+          # Puts the Kubernetes API server on the tailnet as its own device,
+          # so kubectl works from anywhere without a kubeconfig full of LAN IPs.
+          mode: "true"
+        operatorConfig:
+          hostname: homelab-operator
+        proxyConfig:
+          defaultTags: "tag:k8s"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"   # Connector CRD only exists after wave 3
+spec:
+  project: default
+  source:
+    repoURL: __GITHUB_REPO__
+    targetRevision: main
+    path: clusters/lab/platform/tailscale/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}

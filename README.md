@@ -26,7 +26,7 @@ flowchart TB
             ARGO[ArgoCD]
             ROOK[(Rook-Ceph<br/>2 OSD · RBD + S3)]
             OBS[Prometheus<br/>Grafana]
-            TG[Twingate<br/>connector]
+            TS[Tailscale<br/>operator + subnet router]
             AI[Ollama · Open WebUI<br/>MLflow]
         end
         OS["OpenStack guest (KVM)<br/>Kolla-Ansible AIO<br/>started on demand"]
@@ -34,8 +34,8 @@ flowchart TB
 
     GH[(GitHub<br/>this repo)]
 
-    U -. outbound tunnel .-> TG
-    TG --> CIL
+    U -. WireGuard, outbound .-> TS
+    TS --> CIL
     CIL --> AI
     AI --> ROOK
     OBS --> ROOK
@@ -47,7 +47,7 @@ flowchart TB
     style OS stroke-dasharray: 5 5
 ```
 
-**No inbound ports are open on the router.** The Twingate connector dials out;
+**No inbound ports are open on the router.** Tailscale connects outbound;
 Let's Encrypt validates via a DNS TXT record rather than an inbound HTTP
 challenge.
 
@@ -67,7 +67,7 @@ This table is the design. Everything else follows from it.
 | Rook: RGW (S3) | 0.5 GB | |
 | ArgoCD | 0.6 GB | |
 | cert-manager + sealed-secrets | 0.2 GB | |
-| Twingate connector | 0.1 GB | |
+| Tailscale operator + connector | 0.2 GB | subnet router + exit node |
 | kube-prometheus-stack | 1.8 GB | 7d retention, 30s scrape |
 | **Platform total** | **~10.4 GB** | |
 | **Free for workloads** | **~5.5 GB** | fits a 3B Q4 model + the web UI |
@@ -83,7 +83,7 @@ host/          bare-metal prep + kubeadm init + Cilium   (imperative, run once)
 bootstrap/     ArgoCD install + the app-of-apps root     (imperative, run once)
 clusters/lab/  everything else                            (GitOps, wave-ordered)
   infra/         sealed-secrets, cert-manager, rook-ceph
-  platform/      gateway, split-horizon DNS, twingate, observability
+  platform/      gateway, split-horizon DNS, tailscale, observability
   workloads/     ollama, open-webui, mlflow
 scripts/       configure.sh, openstack-mode.sh, k8s-mode.sh
 docs/          RUNBOOK.md (full build guide), decisions.md, versions.md
@@ -112,7 +112,7 @@ kubectl apply -f bootstrap/root-app.yaml
 ```
 
 Then seal the two secrets (`infra/cert-manager/SEALING.md`,
-`platform/twingate/SEALING.md`) and Argo brings up the rest in wave order.
+`platform/tailscale/SEALING.md`) and Argo brings up the rest in wave order.
 
 > **Before the first sync, read [`docs/versions.md`](docs/versions.md)** and
 > verify every pinned chart version. They were written from memory.
@@ -123,7 +123,7 @@ Then seal the two secrets (`infra/cert-manager/SEALING.md`,
 - [ ] Phase 1 — kubeadm + Cilium
 - [ ] Phase 2 — ArgoCD / GitOps
 - [ ] Phase 3 — Rook-Ceph
-- [ ] Phase 4 — DNS, TLS, Twingate
+- [ ] Phase 4 — DNS, TLS, Tailscale
 - [ ] Phase 5 — observability
 - [ ] Phase 6 — AI workloads
 - [ ] Phase 7 — OpenStack (Kolla-Ansible)

@@ -14,7 +14,7 @@ an afternoon of confusing sync failures.
 | rook-ceph | `infra/rook-ceph-operator/app.yaml` | v1.16.2 | https://rook.io |
 | ceph image | `infra/rook-ceph-cluster/manifests/cluster.yaml`, `toolbox.yaml` | v19.2.1 | must be a version your Rook release supports |
 | k8s-gateway | `platform/dns/app.yaml` | 2.4.0 | https://github.com/ori-edge/k8s_gateway |
-| twingate connector | `platform/twingate/app.yaml` | 0.1.29 | https://github.com/Twingate/helm-charts |
+| tailscale-operator | `platform/tailscale/app.yaml` | 1.78.1 | https://pkgs.tailscale.com/helmcharts |
 | kube-prometheus-stack | `platform/observability/app.yaml` | 67.5.0 | `helm search repo` |
 
 Fastest way to check the Helm ones on the box:
@@ -24,7 +24,7 @@ for r in "sealed-secrets https://bitnami-labs.github.io/sealed-secrets" \
          "jetstack https://charts.jetstack.io" \
          "rook-release https://charts.rook.io/release" \
          "k8s-gateway https://ori-edge.github.io/k8s_gateway/" \
-         "twingate https://twingate.github.io/helm-charts" \
+         "tailscale https://pkgs.tailscale.com/helmcharts" \
          "prometheus-community https://prometheus-community.github.io/helm-charts"; do
   helm repo add $r >/dev/null 2>&1
 done
