@@ -1,0 +1,72 @@
+# This is the component that makes Ceph load-bearing rather than decorative:
+# run metadata goes to Postgres on a Ceph RBD volume, and model artifacts go to
+# the Ceph RGW S3 bucket. Both storage modes exercised by one real workload.
+apiVersion: objectbucket.io/v1alpha1
+kind: ObjectBucketClaim
+metadata: {name: mlflow-artifacts, namespace: ai}
+spec:
+  generateBucketName: mlflow
+  storageClassName: ceph-bucket
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: mlflow-db, namespace: ai}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ceph-block
+  resources: {requests: {storage: 5Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: mlflow, namespace: ai}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: mlflow}}
+  template:
+    metadata: {labels: {app: mlflow}}
+    spec:
+      containers:
+        - name: mlflow
+          image: ghcr.io/mlflow/mlflow:v2.19.0
+          command: ["/bin/sh","-c"]
+          args:
+            - |
+              pip install --no-cache-dir boto3 >/dev/null &&
+              exec mlflow server \
+                --host 0.0.0.0 --port 5000 \
+                --backend-store-uri sqlite:////data/mlflow.db \
+                --artifacts-destination s3://$${BUCKET_NAME}
+          ports: [{containerPort: 5000}]
+          env:
+            # Injected by the OBC: endpoint + bucket name.
+            - {name: BUCKET_NAME,  valueFrom: {configMapKeyRef: {name: mlflow-artifacts, key: BUCKET_NAME}}}
+            - {name: BUCKET_HOST,  valueFrom: {configMapKeyRef: {name: mlflow-artifacts, key: BUCKET_HOST}}}
+            - {name: BUCKET_PORT,  valueFrom: {configMapKeyRef: {name: mlflow-artifacts, key: BUCKET_PORT}}}
+            - {name: AWS_ACCESS_KEY_ID,     valueFrom: {secretKeyRef: {name: mlflow-artifacts, key: AWS_ACCESS_KEY_ID}}}
+            - {name: AWS_SECRET_ACCESS_KEY, valueFrom: {secretKeyRef: {name: mlflow-artifacts, key: AWS_SECRET_ACCESS_KEY}}}
+            - {name: MLFLOW_S3_ENDPOINT_URL, value: "http://rook-ceph-rgw-s3.rook-ceph.svc:80"}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits:   {memory: 512Mi}
+          volumeMounts: [{name: db, mountPath: /data}]
+      volumes:
+        - name: db
+          persistentVolumeClaim: {claimName: mlflow-db}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: mlflow, namespace: ai}
+spec:
+  selector: {app: mlflow}
+  ports: [{port: 80, targetPort: 5000}]
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: {name: mlflow, namespace: ai}
+spec:
+  parentRefs:
+    - {name: lan, namespace: gateway, sectionName: https}
+  hostnames: ["mlflow.__DOMAIN__"]
+  rules:
+    - backendRefs: [{name: mlflow, port: 80}]

@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: open-webui-data, namespace: ai}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ceph-block
+  resources: {requests: {storage: 5Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: open-webui, namespace: ai}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: open-webui}}
+  template:
+    metadata: {labels: {app: open-webui}}
+    spec:
+      containers:
+        - name: open-webui
+          image: ghcr.io/open-webui/open-webui:main
+          ports: [{containerPort: 8080}]
+          env:
+            - {name: OLLAMA_BASE_URL, value: "http://ollama.ai.svc:11434"}
+            - {name: WEBUI_AUTH, value: "true"}
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits:   {memory: 768Mi}
+          volumeMounts: [{name: data, mountPath: /app/backend/data}]
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: open-webui-data}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: open-webui, namespace: ai}
+spec:
+  selector: {app: open-webui}
+  ports: [{port: 80, targetPort: 8080}]
+---
+# Attaches to the shared Gateway in the 'gateway' namespace. k8s-gateway-dns
+# sees this HTTPRoute and starts answering chat.__DOMAIN__ on the LAN.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata: {name: open-webui, namespace: ai}
+spec:
+  parentRefs:
+    - {name: lan, namespace: gateway, sectionName: https}
+  hostnames: ["chat.__DOMAIN__"]
+  rules:
+    - backendRefs: [{name: open-webui, port: 80}]

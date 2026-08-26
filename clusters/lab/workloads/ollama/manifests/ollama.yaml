@@ -1,0 +1,52 @@
+# CPU-only inference. A 3B-class model at Q4 runs at a few tokens/sec on an
+# 11th-gen i7 - slow, but genuinely useful and enough to exercise the whole
+# platform path: Ceph PVC -> pod -> Gateway -> Twingate -> phone.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: ai
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: ceph-block
+  resources: {requests: {storage: 40Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: ai
+spec:
+  replicas: 1
+  strategy: {type: Recreate}   # RWO volume: never two pods at once
+  selector: {matchLabels: {app: ollama}}
+  template:
+    metadata: {labels: {app: ollama}}
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports: [{containerPort: 11434}]
+          env:
+            - {name: OLLAMA_MODELS, value: /models}
+            - {name: OLLAMA_KEEP_ALIVE, value: "5m"}
+            # One model resident at a time - the RAM budget has no room for two.
+            - {name: OLLAMA_MAX_LOADED_MODELS, value: "1"}
+            - {name: OLLAMA_NUM_PARALLEL, value: "1"}
+          resources:
+            requests: {cpu: "2", memory: 3Gi}
+            limits:   {memory: 5Gi}
+          volumeMounts: [{name: models, mountPath: /models}]
+          readinessProbe:
+            httpGet: {path: /, port: 11434}
+            initialDelaySeconds: 10
+      volumes:
+        - name: models
+          persistentVolumeClaim: {claimName: ollama-models}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ollama, namespace: ai}
+spec:
+  selector: {app: ollama}
+  ports: [{port: 11434, targetPort: 11434}]
