@@ -1,0 +1,31 @@
+# `kubectl -n rook-ceph exec deploy/rook-ceph-tools -- ceph -s`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rook-ceph-tools
+  namespace: rook-ceph
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: rook-ceph-tools}}
+  template:
+    metadata: {labels: {app: rook-ceph-tools}}
+    spec:
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: rook-ceph-tools
+          image: quay.io/ceph/ceph:v19.2.1
+          command: ["/bin/bash", "-c", "sleep infinity"]
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits:   {memory: 256Mi}
+          volumeMounts:
+            - {name: ceph-config, mountPath: /etc/ceph}
+            - {name: mon-endpoint-volume, mountPath: /etc/rook}
+      volumes:
+        - name: mon-endpoint-volume
+          configMap:
+            name: rook-ceph-mon-endpoints
+            items: [{key: data, path: mon-endpoints}]
+        - name: ceph-config
+          emptyDir: {}

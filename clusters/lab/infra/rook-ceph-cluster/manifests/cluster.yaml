@@ -1,0 +1,52 @@
+apiVersion: ceph.rook.io/v1
+kind: CephCluster
+metadata:
+  name: rook-ceph
+  namespace: rook-ceph
+spec:
+  cephVersion:
+    image: quay.io/ceph/ceph:v19.2.1   # VERIFY - see docs/versions.md
+  dataDirHostPath: /var/lib/rook
+
+  # One mon, deliberately. Three mons on a single node teaches nothing about
+  # quorum and costs ~1GB we do not have. The accepted tradeoff: losing the mon
+  # loses storage until restored, so BACK UP THE MON STORE.
+  mon:
+    count: 1
+    allowMultiplePerNode: false
+  mgr:
+    count: 1
+    modules:
+      - name: rook
+        enabled: true
+
+  dashboard:
+    enabled: true
+    ssl: false
+
+  monitoring:
+    enabled: true   # requires the Prometheus operator CRDs (wave 3)
+
+  storage:
+    useAllNodes: false
+    useAllDevices: false
+    nodes:
+      - name: "__NODE_NAME__"
+        devices:
+          # Raw partitions, wiped by host/wipe-ceph-disks.sh. Rook SILENTLY
+          # skips any device with a filesystem or LVM signature.
+          - name: "nvme0n1p4"
+          - name: "nvme0n1p5"
+
+  cephConfig:
+    global:
+      # Default is 4GiB per OSD. Two OSDs would eat half the machine.
+      osd_memory_target: "1610612736"   # 1.5 GiB
+      # Single host: without this, CRUSH cannot place a second replica.
+      osd_crush_chooseleaf_type: "0"
+      mon_warn_on_pool_no_redundancy: "false"
+
+  resources:
+    mgr: {requests: {cpu: 100m, memory: 384Mi}, limits: {memory: 512Mi}}
+    mon: {requests: {cpu: 100m, memory: 384Mi}, limits: {memory: 512Mi}}
+    osd: {requests: {cpu: 250m, memory: 1536Mi}, limits: {memory: 2Gi}}

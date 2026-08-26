@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rook-ceph-cluster
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: __GITHUB_REPO__
+    targetRevision: main
+    path: clusters/lab/infra/rook-ceph-cluster/manifests
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rook-ceph
+  syncPolicy:
+    automated: {prune: false, selfHeal: true}   # never auto-prune storage
+    syncOptions: [ServerSideApply=true]

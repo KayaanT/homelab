@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: rook-ceph-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://charts.rook.io/release
+    chart: rook-ceph
+    targetRevision: v1.16.2   # VERIFY - see docs/versions.md
+    helm:
+      values: |
+        csi:
+          # Single node: no need for the provisioner HA pair.
+          provisionerReplicas: 1
+          # CephFS driver disabled - we run RBD + RGW only, saving ~200Mi.
+          enableCephfsDriver: false
+        resources:
+          requests: {cpu: 100m, memory: 128Mi}
+          limits:   {memory: 256Mi}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: rook-ceph
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
