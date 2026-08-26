@@ -1,0 +1,84 @@
+# Trimmed hard for 16GB. The defaults assume a real cluster and will happily
+# take 4GB+ for Prometheus alone.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 67.5.0   # VERIFY - see docs/versions.md
+    helm:
+      values: |
+        prometheus:
+          prometheusSpec:
+            retention: 7d
+            retentionSize: 20GB
+            scrapeInterval: 30s          # default 15s doubles the series load
+            evaluationInterval: 30s
+            # Discover ServiceMonitors from every namespace, not just those
+            # carrying the chart's release label. Rook and Cilium ship their
+            # own and would otherwise be silently ignored.
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            resources:
+              requests: {cpu: 200m, memory: 1Gi}
+              limits:   {memory: 1500Mi}
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: ceph-block
+                  accessModes: [ReadWriteOnce]
+                  resources: {requests: {storage: 25Gi}}
+        alertmanager:
+          # Nothing to page. Re-enable when you have somewhere to send alerts.
+          enabled: false
+        grafana:
+          adminPassword: changeme-then-seal
+          persistence:
+            enabled: true
+            storageClassName: ceph-block
+            size: 5Gi
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits:   {memory: 256Mi}
+          # Community dashboards, pulled by ID at first boot.
+          dashboardProviders:
+            dashboardproviders.yaml:
+              apiVersion: 1
+              providers:
+                - name: default
+                  folder: ""
+                  type: file
+                  options: {path: /var/lib/grafana/dashboards/default}
+          dashboards:
+            default:
+              ceph-cluster:   {gnetId: 2842,  revision: 17, datasource: Prometheus}
+              cilium-agent:   {gnetId: 16611, revision: 1,  datasource: Prometheus}
+              node-exporter:  {gnetId: 1860,  revision: 37, datasource: Prometheus}
+        prometheus-node-exporter:
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits:   {memory: 64Mi}
+        kube-state-metrics:
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits:   {memory: 128Mi}
+        # Not applicable to a kubeadm single node - these scrape endpoints that
+        # do not exist and produce permanently-red targets.
+        kubeEtcd: {enabled: true}
+        kubeControllerManager: {enabled: true}
+        kubeScheduler: {enabled: true}
+        kubeProxy: {enabled: false}   # there IS no kube-proxy. Cilium replaced it.
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
