@@ -225,3 +225,34 @@ never do, since it only ever worked on the home LAN.
 an arbitrary LAN device without a route. The Phase 7 milestone — boot a Cirros
 instance, assign a floating IP, ping it, SSH in, inspect Placement allocations —
 is unaffected.
+
+
+## Intel Wireless-AC 9560 — power management will bite you
+
+The 9560 is a CNVi part driven by `iwlwifi`, in-kernel since ~4.14 with firmware
+from `linux-firmware`. It works on Ubuntu with no setup.
+
+**But its default power saving makes a headless box unreliable.** The symptom is
+distinctive and easy to misdiagnose: SSH and Prometheus scrapes hang for several
+seconds after any idle period, latency looks erratic, and nothing in the logs
+explains it. The radio is entering a low-power state and taking too long to come
+back.
+
+```bash
+cat <<'EOF' | sudo tee /etc/modprobe.d/iwlwifi-noposwer.conf
+options iwlwifi power_save=0 d0i3_disable=1 uapsd_disable=1
+options iwlmvm power_scheme=1
+EOF
+sudo update-initramfs -u
+sudo reboot
+```
+
+Verify:
+
+```bash
+iw dev wlp0s20f3 get power_save     # should print 'Power save: off'
+cat /sys/module/iwlwifi/parameters/power_save   # 0
+```
+
+`power_scheme=1` is the "always active" setting. On a machine running on mains
+power that is what you want; battery life is irrelevant for a server.

@@ -37,6 +37,13 @@ Windows unbootable (irrelevant here, since it's going).
 On the Windows box, before wiping:
 
 1. Download **Ubuntu Server 24.04.x LTS** (not Desktop) from ubuntu.com.
+
+   **Why 24.04 and not 26.04:** the newer LTS has a better kernel, but every
+   guide, and more importantly Kolla-Ansible's supported-base-distro matrix and
+   the Rook/Ceph docs, target 24.04. Being on the newest LTS means hitting bugs
+   nobody has written about yet — fine when learning one tool, painful when
+   learning five at once. Check Kolla's release notes for your target OpenStack
+   version before choosing 26.04.
 2. Write it with [Rufus](https://rufus.ie): partition scheme **GPT**, target
    **UEFI**, and accept "DD image mode" if prompted.
 3. Reboot, tap the boot-menu key (F12 on most), pick the USB device.
